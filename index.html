@@ -280,31 +280,8 @@
   .m-preview{display:none;}
   @media (max-width:880px){ .m-preview{display:block;} }
 
-  /* export guidance sheet (mobile) */
-  .sheet{
-    position:fixed;inset:0;z-index:60;background:rgba(20,20,20,.35);
-    display:none;align-items:flex-end;justify-content:center;
-    opacity:0;transition:opacity .3s var(--ease);
-  }
-  .sheet.on{display:flex;opacity:1;}
-  .sheet-card{
-    background:#fff;border-radius:18px 18px 0 0;padding:24px 22px 30px;
-    width:100%;max-width:560px;
-    transform:translateY(24px);transition:transform .35s var(--ease);
-  }
-  .sheet.on .sheet-card{transform:none;}
-  .sheet-t{font-size:16px;font-weight:500;letter-spacing:-0.015em;margin-bottom:8px;}
-  .sheet-b{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:18px;}
-  .sheet-b b{color:var(--ink);font-weight:500;}
-  .sheet-row{display:flex;gap:10px;}
-  .sheet-cancel{
-    flex:1;background:var(--input);border:none;border-radius:22px;
-    padding:12px;font-size:13.5px;font-weight:500;cursor:pointer;
-  }
-  .sheet-go{
-    flex:2;background:var(--ink);color:#fff;border:none;border-radius:22px;
-    padding:12px;font-size:13.5px;font-weight:500;cursor:pointer;
-  }
+  .page.exporting{border-radius:0;box-shadow:none;}
+  .page.exporting::after{display:none;}
 
   /* ================= PRINT ================= */
   @page{size:letter;margin:0;}
@@ -380,14 +357,14 @@
           <div class="t-due"><span class="k">Total due</span><span class="v" id="pvTotal">$0.00</span></div>
         </div>
 
-        <div class="page-foot">
-          <div class="foot-col">
+        <div class="page-foot" id="pvFoot">
+          <div class="foot-col" id="pvPayCol">
             <div class="p-label">Payment</div>
-            <div class="body empty" id="pvPayment">Add your payment details</div>
+            <div class="body" id="pvPayment"></div>
           </div>
-          <div class="foot-col">
+          <div class="foot-col" id="pvNotesCol">
             <div class="p-label">Notes</div>
-            <div class="body empty" id="pvNotes">—</div>
+            <div class="body" id="pvNotes"></div>
           </div>
         </div>
       </div>
@@ -510,16 +487,7 @@
 </div>
 <button class="m-close" id="mClose" onclick="mPreview(false)">Edit</button>
 
-<div class="sheet" id="exportSheet">
-  <div class="sheet-card">
-    <div class="sheet-t">Save as PDF</div>
-    <div class="sheet-b">The print sheet opens next. <b>Pinch open</b> the page preview with two fingers, then tap <b>Share → Save to Files</b> — this saves a clean PDF without URL headers.<br><br>Opened inside Instagram / WeChat / Messages? Tap <b>···</b> and open in <b>Safari</b> first — in-app browsers break PDF export.</div>
-    <div class="sheet-row">
-      <button class="sheet-cancel" onclick="hideSheet()">Cancel</button>
-      <button class="sheet-go" onclick="doExport()">Continue</button>
-    </div>
-  </div>
-</div>
+
 
 <script>
   let items = [{desc:"",qty:1,rate:""}];
@@ -702,8 +670,12 @@
     const total = taxable+tax;
     $("pvTotal").textContent = fmt.format(total);
 
-    setText("pvPayment", $("payment").value, "Add your payment details");
-    setText("pvNotes", $("notes").value, "—");
+    const payV = $("payment").value.trim(), noteV = $("notes").value.trim();
+    $("pvFoot").style.display = (payV || noteV) ? "flex" : "none";
+    $("pvPayCol").style.display = payV ? "" : "none";
+    $("pvNotesCol").style.display = noteV ? "" : "none";
+    $("pvPayment").textContent = payV;
+    $("pvNotes").textContent = noteV;
 
     /* live title = PDF filename on every browser, incl. iOS which skips beforeprint */
     const tNm = $("fromName").value.trim().replace(/[^\w\u4e00-\u9fa5-]+/g,"-");
@@ -771,14 +743,49 @@
   });
 
   /* ---------- export ---------- */
+  /* Desktop: system print (vector text, perfect).
+     Mobile: render the page to a hi-res canvas and build a real PDF file —
+     bypasses the print dialog entirely (no URL headers, no pagination bugs). */
   function exportPDF(){
-    if(isMobile()){ $("exportSheet").classList.add("on"); }
+    if(isMobile()){ exportMobilePDF(); }
     else window.print();
   }
-  function hideSheet(){ $("exportSheet").classList.remove("on"); }
-  function doExport(){
-    hideSheet();
-    setTimeout(()=>window.print(), 250);
+  let libsP = null;
+  function loadLibs(){
+    if(libsP) return libsP;
+    libsP = new Promise((res, rej)=>{
+      let n = 0; const done = ()=>{ if(++n === 2) res(); };
+      const add = src=>{
+        const t = document.createElement("script");
+        t.src = src; t.onload = done; t.onerror = ()=>rej(new Error(src));
+        document.head.appendChild(t);
+      };
+      add("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
+      add("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    });
+    return libsP;
+  }
+  async function exportMobilePDF(){
+    const btns = document.querySelectorAll(".btn-export");
+    btns.forEach(b=>{ b.dataset.t = b.textContent; b.textContent = "Exporting…"; b.disabled = true; });
+    try{
+      await loadLibs();
+      const clone = $("page").cloneNode(true);
+      clone.classList.add("exporting");
+      const holder = document.createElement("div");
+      holder.style.cssText = "position:fixed;left:-2000px;top:0;width:816px;z-index:-1;";
+      holder.appendChild(clone);
+      document.body.appendChild(holder);
+      const canvas = await html2canvas(clone, {scale:2, backgroundColor:"#ffffff", width:816, height:1056});
+      holder.remove();
+      const pdf = new jspdf.jsPDF({unit:"pt", format:"letter", orientation:"portrait"});
+      pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, 612, 792);
+      pdf.save(document.title + ".pdf");
+    }catch(e){
+      alert("Export failed — try again, or open this page in Safari or Chrome (not inside an app).");
+    }finally{
+      btns.forEach(b=>{ b.textContent = b.dataset.t; b.disabled = false; });
+    }
   }
 
   /* export: page renders from the stage; put it back in the overlay afterwards */
