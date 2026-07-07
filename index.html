@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoice — for creative work</title>
+<style>
+  :root{
+    --ink:#141414;
+    --muted:#8b8b86;
+    --faint:#bdbdb8;
+    --hairline:#eeeeeb;
+    --rule:#4c4c49;
+    --appbg:#e9e9e6;
+    --panelbg:#f4f4f2;
+    --card:#ffffff;
+    --input:#f2f2ef;
+    --ease:cubic-bezier(.32,.72,.24,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+    background:var(--appbg);color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    letter-spacing:-0.01em;
+    animation:bodyIn .5s var(--ease) both;
+  }
+  @keyframes bodyIn{from{opacity:0}to{opacity:1}}
+  button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent;}
+
+  /* grain — screen only, never exported */
+  body::after{
+    content:"";position:fixed;inset:0;z-index:99;pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity:.07;
+  }
+
+  .app{display:flex;height:100vh;overflow:hidden;}
+
+  /* ================= LEFT · PREVIEW ================= */
+  .stage{
+    flex:1;overflow:hidden;display:flex;justify-content:center;
+    padding:44px 44px;position:relative;
+  }
+  .page-scale{position:relative;z-index:1;}
+  .page-scale{transform-origin:top center;}
+  .frame{
+    position:relative;border:1px solid #d9d9d5;border-radius:0;
+    padding:24px;background:rgba(255,255,255,.35);
+    animation:pageIn .7s var(--ease) both .1s;
+  }
+  @keyframes pageIn{from{opacity:0}to{opacity:1}}
+  /* registration lines extending from the frame edges */
+  .gl{position:absolute;background:#dcdcd8;pointer-events:none;}
+  .gl-t{top:-1px;left:-4000px;right:-4000px;height:1px;}
+  .gl-b{bottom:-1px;left:-4000px;right:-4000px;height:1px;}
+  .gl-l{left:-1px;top:-4000px;bottom:-4000px;width:1px;}
+  .gl-r{right:-1px;top:-4000px;bottom:-4000px;width:1px;}
+  .cdot{position:absolute;width:5px;height:5px;background:var(--ink);pointer-events:none;}
+  .cdot.tl{top:-3px;left:-3px;} .cdot.tr{top:-3px;right:-3px;}
+  .cdot.bl{bottom:-3px;left:-3px;} .cdot.br{bottom:-3px;right:-3px;}
+
+  .page{
+    width:816px;height:1056px;background:#fff;
+    box-shadow:0 1px 2px rgba(0,0,0,.05),0 16px 48px rgba(0,0,0,.10);
+    padding:72px 76px;display:flex;flex-direction:column;
+    font-size:13px;line-height:1.4;letter-spacing:-0.005em;color:var(--ink);
+    position:relative;border-radius:4px;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;
+  }
+  .page::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity:.06;
+  }
+  .inv-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:64px;}
+  .inv-eyebrow{font-size:10.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);font-weight:500;margin-bottom:8px;}
+  .inv-no{font-size:40px;font-weight:500;letter-spacing:-0.03em;line-height:1;}
+  .inv-meta{text-align:right;font-size:12px;line-height:1.65;}
+  .inv-meta .k{color:var(--muted);margin-right:10px;}
+
+  .parties{display:flex;gap:64px;margin-bottom:56px;}
+  .party{flex:1;min-width:0;}
+  .p-label{font-size:10.5px;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:8px;font-weight:500;}
+  .p-name{font-weight:500;margin-bottom:2px;}
+  .p-line{white-space:pre-line;}
+  .p-line.dim{color:var(--muted);}
+
+  .proj{margin-bottom:28px;font-size:12px;}
+  .proj .k{color:var(--muted);margin-right:10px;text-transform:uppercase;font-size:10.5px;letter-spacing:0.07em;font-weight:500;}
+
+  table.items{width:100%;border-collapse:collapse;}
+  table.items th{
+    font-size:10.5px;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);
+    font-weight:500;text-align:left;padding:0 0 8px;border-bottom:1px solid var(--rule);
+  }
+  table.items th.r,table.items td.r{text-align:right;}
+  table.items td{padding:10px 0;border-bottom:1px solid var(--hairline);vertical-align:top;font-size:13px;}
+  table.items td.qty,table.items th.qty{width:90px;text-align:left;}
+  table.items td.rate,table.items th.rate{width:90px;}
+  table.items td.amt,table.items th.amt{width:120px;}
+
+  .totals{margin-top:18px;margin-left:auto;width:300px;font-size:13px;}
+  .t-row{display:flex;justify-content:space-between;padding:5px 0;}
+  .t-row .k{color:var(--muted);}
+  .t-due{
+    display:flex;justify-content:space-between;align-items:baseline;
+    margin-top:14px;padding-top:14px;border-top:1px solid var(--rule);
+  }
+  .t-due .k{font-size:10.5px;text-transform:uppercase;letter-spacing:0.07em;font-weight:500;}
+  .t-due .v{font-size:26px;font-weight:500;letter-spacing:-0.025em;}
+
+  .page-foot{
+    margin-top:auto;display:flex;gap:64px;padding-top:24px;
+    border-top:1px solid var(--hairline);font-size:12px;line-height:1.55;
+  }
+  .foot-col{flex:1;min-width:0;}
+  .foot-col .p-label{margin-bottom:6px;}
+  .foot-col .body{white-space:pre-line;}
+  .foot-col .body.empty{color:var(--faint);}
+  .ph{color:var(--faint);}
+
+  /* ================= RIGHT · PANEL ================= */
+  .panel{
+    width:440px;flex:none;background:var(--panelbg);
+    border-left:1px solid var(--hairline);
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  .panel-scroll{flex:1;overflow-y:auto;padding:40px 28px 24px;}
+  .panel h1{
+    font-size:30px;font-weight:500;letter-spacing:-0.03em;
+    margin:0 6px 26px;
+  }
+
+
+  .group{
+    background:var(--card);border-radius:16px;margin-bottom:10px;
+    box-shadow:0 1px 2px rgba(0,0,0,.03);
+    transition:box-shadow .25s var(--ease);
+  }
+  .group:hover{box-shadow:0 2px 10px rgba(0,0,0,.06);}
+  .rowhead{
+    display:flex;align-items:center;gap:12px;width:100%;
+    padding:15px 18px;cursor:pointer;user-select:none;
+    background:none;border:none;text-align:left;
+    color:inherit;-webkit-tap-highlight-color:transparent;
+  }
+  .rowhead .rk{font-size:13.5px;font-weight:500;letter-spacing:-0.01em;flex:none;}
+  .rowhead .rv{
+    flex:1;font-size:12.5px;color:var(--faint);text-align:right;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    transition:color .25s;
+  }
+  .rowhead .rv.filled{color:var(--muted);}
+  .rowhead .plus{
+    flex:none;width:22px;height:22px;border-radius:50%;
+    position:relative;font-size:0;background:var(--input);
+    transition:transform .35s var(--ease);
+  }
+  .rowhead .plus::before,.rowhead .plus::after{
+    content:"";position:absolute;left:50%;top:50%;
+    transform:translate(-50%,-50%);background:var(--muted);border-radius:1px;
+  }
+  .rowhead .plus::before{width:9px;height:1.4px;}
+  .rowhead .plus::after{width:1.4px;height:9px;}
+  .group.open .plus{transform:rotate(45deg);}
+
+  .ed{display:grid;grid-template-rows:0fr;transition:grid-template-rows .4s var(--ease);}
+  .group.open .ed{grid-template-rows:1fr;}
+  .ed-in{overflow:hidden;}
+  .ed-pad{padding:2px 18px 18px;}
+
+  .f{margin-bottom:8px;}
+  .r2{display:flex;gap:8px;}
+  .r2 .f{flex:1;}
+  input,textarea,select{
+    -webkit-appearance:none;appearance:none;
+    width:100%;font:inherit;font-size:12.5px;letter-spacing:-0.005em;color:var(--ink);
+    background:var(--input);border:1px solid transparent;border-radius:9px;
+    padding:9px 11px;outline:none;
+    transition:background .2s,border-color .2s;
+  }
+  input::placeholder,textarea::placeholder{color:var(--faint);}
+  input:focus,textarea:focus,select:focus{background:#fff;border-color:var(--ink);}
+  textarea{resize:vertical;min-height:54px;line-height:1.45;}
+  input[type="date"]{text-align:left;}
+  input[type="date"]::-webkit-date-and-time-value{text-align:left;}
+  select{appearance:none;-webkit-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 8 5' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%238b8b86' fill='none'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 12px center;}
+
+  @keyframes fillFlash{0%{background:#e4e4df}100%{background:var(--input)}}
+  .flash{animation:fillFlash .9s var(--ease);}
+
+  .paste{
+    border:1px dashed #dcdcd7;border-radius:9px;background:transparent;
+    margin-bottom:10px;transition:border-color .2s,background .2s;
+  }
+  .paste textarea{
+    background:transparent;border:none;min-height:40px;font-size:12px;
+  }
+  .paste textarea:focus{background:transparent;border:none;}
+  .paste:focus-within{border-color:var(--ink);background:#fff;}
+  .paste-hint{font-size:10px;color:var(--muted);padding:0 11px 8px;line-height:1.4;}
+
+  .item-row{display:flex;gap:6px;margin-bottom:6px;}
+  .item-row .desc{flex:1;}
+  .item-row .qty{width:50px;flex:none;}
+  .item-row .rate{width:80px;flex:none;}
+  .item-remove{flex:none;width:24px;border:none;background:none;color:var(--faint);font-size:15px;cursor:pointer;}
+  .item-remove:hover{color:var(--ink);}
+  .add-item{
+    font-size:12px;color:var(--ink);background:none;
+    border:1px dashed var(--faint);border-radius:9px;
+    padding:8px 12px;cursor:pointer;width:100%;margin-top:2px;
+    transition:border-color .2s;
+  }
+  .add-item:hover{border-color:var(--ink);}
+  .hint{font-size:10px;color:var(--muted);line-height:1.5;margin-top:6px;}
+  .linkbtn{background:none;border:none;padding:0;font-size:10px;color:var(--muted);
+    text-decoration:underline;cursor:pointer;}
+  .linkbtn:hover{color:var(--ink);}
+
+  .panel-foot{
+    padding:16px 28px 22px;border-top:1px solid var(--hairline);
+    display:flex;align-items:center;gap:12px;background:var(--panelbg);
+  }
+  .btn-export{
+    flex:1;background:var(--ink);color:#fff;border:none;border-radius:24px;
+    padding:13px 22px;font-size:13px;font-weight:500;letter-spacing:-0.005em;
+    cursor:pointer;transition:transform .25s var(--ease),background .2s;
+  }
+  .btn-export:hover{background:#000;transform:translateY(-1px);}
+  .btn-export:active{transform:translateY(0);}
+
+  /* ================= MOBILE ================= */
+  .m-toggle{display:none;}
+  @media (max-width:880px){
+    input,textarea,select{font-size:16px;}
+    .paste textarea{font-size:16px;}
+    .app{display:block;height:auto;overflow:visible;}
+    .stage{display:none;}
+    .panel{width:100%;border-left:none;height:auto;min-height:100vh;}
+    .panel-scroll{padding:28px 16px 110px;}
+    .panel-foot{position:fixed;bottom:0;left:0;right:0;padding:12px 16px 18px;z-index:50;}
+    .m-toggle{
+      display:flex;position:fixed;top:30px;right:16px;z-index:30;
+      background:var(--ink);color:#fff;border:none;border-radius:20px;
+      padding:9px 18px;font-size:12.5px;font-weight:500;cursor:pointer;
+    }
+    .m-preview{
+      position:fixed;inset:0;z-index:40;background:var(--appbg);
+      transform:translateY(100%);transition:transform .45s var(--ease);
+      overflow:hidden;padding:0;
+      -webkit-overflow-scrolling:touch;
+    }
+    .m-preview.on{transform:translateY(0);}
+    .m-close{
+      position:fixed;top:14px;right:14px;z-index:50;
+      background:#fff;color:var(--ink);border:1px solid var(--hairline);
+      border-radius:20px;padding:9px 18px;font-size:12.5px;font-weight:500;cursor:pointer;
+      display:none;
+    }
+    .m-preview.on ~ .m-close{display:block;}
+  }
+  .m-preview{display:none;}
+  @media (max-width:880px){ .m-preview{display:block;} }
+
+  /* export guidance sheet (mobile) */
+  .sheet{
+    position:fixed;inset:0;z-index:60;background:rgba(20,20,20,.35);
+    display:none;align-items:flex-end;justify-content:center;
+    opacity:0;transition:opacity .3s var(--ease);
+  }
+  .sheet.on{display:flex;opacity:1;}
+  .sheet-card{
+    background:#fff;border-radius:18px 18px 0 0;padding:24px 22px 30px;
+    width:100%;max-width:560px;
+    transform:translateY(24px);transition:transform .35s var(--ease);
+  }
+  .sheet.on .sheet-card{transform:none;}
+  .sheet-t{font-size:16px;font-weight:500;letter-spacing:-0.015em;margin-bottom:8px;}
+  .sheet-b{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:18px;}
+  .sheet-b b{color:var(--ink);font-weight:500;}
+  .sheet-row{display:flex;gap:10px;}
+  .sheet-cancel{
+    flex:1;background:var(--input);border:none;border-radius:22px;
+    padding:12px;font-size:13.5px;font-weight:500;cursor:pointer;
+  }
+  .sheet-go{
+    flex:2;background:var(--ink);color:#fff;border:none;border-radius:22px;
+    padding:12px;font-size:13.5px;font-weight:500;cursor:pointer;
+  }
+
+  /* ================= PRINT ================= */
+  @page{size:letter;margin:0;}
+  @media print{
+    html,body{height:11in;overflow:hidden;margin:0;background:#fff;animation:none;}
+    .panel,.panel-foot,.m-toggle,.m-preview,.m-close{display:none !important;}
+    .app{display:block;height:auto;overflow:visible;}
+    .stage{display:block !important;padding:0;overflow:visible;}
+    .page-scale{transform:none !important;animation:none;}
+    .page{box-shadow:none;width:8.5in;height:11in;padding:0.75in 0.79in;}
+    body::after,.page::after,.gl,.cdot{display:none !important;}
+    .frame{border:none;padding:0;background:none;animation:none;}
+    .page{border-radius:0;overflow:hidden;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ PREVIEW (left) ============ -->
+  <div class="stage">
+    <div class="page-scale" id="pageScale">
+      <div class="frame" id="frame">
+        <div class="gl gl-t"></div><div class="gl gl-b"></div>
+        <div class="gl gl-l"></div><div class="gl gl-r"></div>
+        <div class="cdot tl"></div><div class="cdot tr"></div>
+        <div class="cdot bl"></div><div class="cdot br"></div>
+      <div class="page" id="page">
+        <div class="inv-head">
+          <div>
+            <div class="inv-eyebrow">Invoice</div>
+            <div class="inv-no" id="pvNo">001</div>
+          </div>
+          <div class="inv-meta">
+            <div><span class="k">Issued</span><span id="pvIssue">—</span></div>
+            <div><span class="k">Due</span><span id="pvDue">—</span></div>
+            <div id="pvPoWrap" style="display:none;"><span class="k">PO</span><span id="pvPo"></span></div>
+          </div>
+        </div>
+
+        <div class="parties">
+          <div class="party">
+            <div class="p-label">From</div>
+            <div class="p-name" id="pvFromName"><span class="ph">Your name</span></div>
+            <div class="p-line" id="pvFromAddr"></div>
+            <div class="p-line dim" id="pvFromContact"></div>
+          </div>
+          <div class="party">
+            <div class="p-label">Bill to</div>
+            <div class="p-name" id="pvToName"><span class="ph">Client</span></div>
+            <div class="p-line" id="pvToContactLine"></div>
+            <div class="p-line" id="pvToAddr"></div>
+            <div class="p-line dim" id="pvToEmail"></div>
+          </div>
+        </div>
+
+        <div class="proj" id="pvProjWrap" style="display:none;">
+          <span class="k">Project</span><span id="pvProj"></span>
+        </div>
+
+        <table class="items">
+          <thead><tr>
+            <th>Description</th><th class="qty r">Qty</th>
+            <th class="rate r">Rate</th><th class="amt r">Amount</th>
+          </tr></thead>
+          <tbody id="pvItems"></tbody>
+        </table>
+
+        <div class="totals">
+          <div class="t-row"><span class="k">Subtotal</span><span id="pvSub">$0.00</span></div>
+          <div class="t-row" id="pvDiscRow" style="display:none;"><span class="k">Discount</span><span id="pvDisc"></span></div>
+          <div class="t-row" id="pvTaxRow" style="display:none;"><span class="k" id="pvTaxLabel">Tax</span><span id="pvTax"></span></div>
+          <div class="t-due"><span class="k">Total due</span><span class="v" id="pvTotal">$0.00</span></div>
+        </div>
+
+        <div class="page-foot">
+          <div class="foot-col">
+            <div class="p-label">Payment</div>
+            <div class="body empty" id="pvPayment">Add your payment details</div>
+          </div>
+          <div class="foot-col">
+            <div class="p-label">Notes</div>
+            <div class="body empty" id="pvNotes">—</div>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PANEL (right) ============ -->
+  <aside class="panel">
+    <div class="panel-scroll">
+      <h1>New invoice</h1>
+
+      <!-- Details -->
+      <div class="group" id="g-details">
+        <button class="rowhead" onclick="toggle('g-details')">
+          <span class="rk">Details</span><span class="rv" id="rv-details">001 · Net 30</span><span class="plus">+</span>
+        </button>
+        <div class="ed"><div class="ed-in"><div class="ed-pad">
+          <div class="r2">
+            <div class="f"><input id="invNo" placeholder="INV-001"></div>
+            <div class="f"><input id="poNo" placeholder="PO # (optional)"></div>
+          </div>
+          <div class="r2">
+            <div class="f"><input id="issueDate" type="date"></div>
+            <div class="f"><select id="terms">
+              <option value="30">Net 30</option><option value="15">Net 15</option>
+              <option value="7">Net 7</option><option value="0">Due on receipt</option>
+            </select></div>
+          </div>
+          <div class="f"><input id="project" placeholder="Project (optional) · e.g. SS26 Campaign"></div>
+        </div></div></div>
+      </div>
+
+      <!-- From -->
+      <div class="group" id="g-from">
+        <button class="rowhead" onclick="toggle('g-from')">
+          <span class="rk">From</span><span class="rv" id="rv-from">None</span><span class="plus">+</span>
+        </button>
+        <div class="ed"><div class="ed-in"><div class="ed-pad">
+          <div class="paste">
+            <textarea rows="1" placeholder="Paste your name, address, email in one go…" data-target="from"></textarea>
+            <div class="paste-hint">Auto-sorts into the fields below.</div>
+          </div>
+          <div class="f"><input id="fromName" placeholder="Your name or studio"></div>
+          <div class="f"><textarea id="fromAddr" rows="2" placeholder="Address&#10;City, State ZIP"></textarea></div>
+          <div class="r2">
+            <div class="f"><input id="fromEmail" placeholder="Email"></div>
+            <div class="f"><input id="fromPhone" placeholder="Phone (optional)"></div>
+          </div>
+          <div class="hint">Auto-saved on this device only — nothing is uploaded. <button class="linkbtn" onclick="clearMe()">Clear saved info</button></div>
+        </div></div></div>
+      </div>
+
+      <!-- Bill to -->
+      <div class="group" id="g-to">
+        <button class="rowhead" onclick="toggle('g-to')">
+          <span class="rk">Bill to</span><span class="rv" id="rv-to">None</span><span class="plus">+</span>
+        </button>
+        <div class="ed"><div class="ed-in"><div class="ed-pad">
+          <div class="paste">
+            <textarea rows="1" placeholder="Paste the client's info in one go…" data-target="to"></textarea>
+            <div class="paste-hint">Auto-sorts into the fields below.</div>
+          </div>
+          <div class="f"><input id="toName" placeholder="Client / company"></div>
+          <div class="f"><input id="toContact" placeholder="Contact person (optional)"></div>
+          <div class="f"><textarea id="toAddr" rows="2" placeholder="Address&#10;City, State ZIP"></textarea></div>
+          <div class="f"><input id="toEmail" placeholder="Email"></div>
+        </div></div></div>
+      </div>
+
+      <!-- Items -->
+      <div class="group" id="g-items">
+        <button class="rowhead" onclick="toggle('g-items')">
+          <span class="rk">Items</span><span class="rv" id="rv-items">None</span><span class="plus">+</span>
+        </button>
+        <div class="ed"><div class="ed-in"><div class="ed-pad">
+          <div id="itemRows"></div>
+          <button class="add-item" onclick="addItem()">+ Add item</button>
+          <div class="hint">Usage rights, deposits, or rush fees can be their own line — e.g. “Usage · digital, North America, 12 months”.</div>
+          <div class="r2" style="margin-top:12px;">
+            <div class="f"><input id="taxPct" type="number" min="0" step="0.1" placeholder="Tax %"></div>
+            <div class="f"><input id="discount" type="number" min="0" step="1" placeholder="Discount $"></div>
+          </div>
+          <div class="hint">Pure services are generally not sales-taxed in California — leave tax empty if that’s you.</div>
+        </div></div></div>
+      </div>
+
+      <!-- Payment -->
+      <div class="group" id="g-pay">
+        <button class="rowhead" onclick="toggle('g-pay')">
+          <span class="rk">Payment</span><span class="rv" id="rv-pay">None</span><span class="plus">+</span>
+        </button>
+        <div class="ed"><div class="ed-in"><div class="ed-pad">
+          <div class="f"><textarea id="payment" rows="3" placeholder="How to pay you — e.g.&#10;Zelle · you@email.com&#10;ACH · Chase · Routing 000000000 · Acct 0000000000"></textarea></div>
+          <div class="hint">Auto-saved on this device only.</div>
+        </div></div></div>
+      </div>
+
+      <!-- Notes -->
+      <div class="group" id="g-notes">
+        <button class="rowhead" onclick="toggle('g-notes')">
+          <span class="rk">Notes</span><span class="rv" id="rv-notes">None</span><span class="plus">+</span>
+        </button>
+        <div class="ed"><div class="ed-in"><div class="ed-pad">
+          <div class="f"><textarea id="notes" rows="3" placeholder="e.g. 50% deposit due to confirm booking.&#10;Late payments accrue 1.5% per month.&#10;Thank you!"></textarea></div>
+        </div></div></div>
+      </div>
+
+    </div>
+    <div class="panel-foot">
+      <button class="btn-export" onclick="exportPDF()">Export PDF</button>
+    </div>
+  </aside>
+</div>
+
+<!-- mobile preview overlay -->
+<button class="m-toggle" id="mToggle" onclick="mPreview(true)">Preview</button>
+<div class="m-preview" id="mPreview">
+  <div class="page-scale" id="mPageScale"></div>
+</div>
+<button class="m-close" id="mClose" onclick="mPreview(false)">Edit</button>
+
+<div class="sheet" id="exportSheet">
+  <div class="sheet-card">
+    <div class="sheet-t">Save as PDF</div>
+    <div class="sheet-b">The print sheet opens next. <b>Pinch open</b> the page preview with two fingers, then tap <b>Share → Save to Files</b> — this saves a clean PDF without URL headers.<br><br>Opened inside Instagram / WeChat / Messages? Tap <b>···</b> and open in <b>Safari</b> first — in-app browsers break PDF export.</div>
+    <div class="sheet-row">
+      <button class="sheet-cancel" onclick="hideSheet()">Cancel</button>
+      <button class="sheet-go" onclick="doExport()">Continue</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let items = [{desc:"",qty:1,rate:""}];
+  const $ = id => document.getElementById(id);
+  const fmt = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
+  const esc = s => String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+
+  /* ---------- expand / collapse ---------- */
+  function toggle(id){
+    const g = $(id);
+    const wasOpen = g.classList.contains("open");
+    document.querySelectorAll(".group.open").forEach(x=>x.classList.remove("open"));
+    if(!wasOpen) g.classList.add("open");
+  }
+
+  /* ---------- line items ---------- */
+  function renderItemRows(){
+    const wrap = $("itemRows"); wrap.innerHTML = "";
+    items.forEach((it,i)=>{
+      const row = document.createElement("div");
+      row.className = "item-row";
+      row.innerHTML = `
+        <input class="desc" placeholder="Description" value="${esc(it.desc)}"
+               oninput="items[${i}].desc=this.value;render()">
+        <input class="qty" type="number" min="0" step="0.5" placeholder="1" value="${it.qty}"
+               oninput="items[${i}].qty=this.value;render()">
+        <input class="rate" type="number" min="0" step="1" placeholder="Rate" value="${it.rate}"
+               oninput="items[${i}].rate=this.value;render()">
+        <button class="item-remove" onclick="removeItem(${i})">×</button>`;
+      wrap.appendChild(row);
+    });
+  }
+  function addItem(){ items.push({desc:"",qty:1,rate:""}); renderItemRows(); render(); }
+  function removeItem(i){
+    items.splice(i,1);
+    if(!items.length) items.push({desc:"",qty:1,rate:""});
+    renderItemRows(); render();
+  }
+
+  /* ---------- smart paste ---------- */
+  function smartParse(text){
+    let email="", phone="", name="", contact="";
+    const addr=[], leftovers=[];
+    const rawLines = text.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+    const labelRe = /^(billed to|bill to|invoice to|attn|attention|c\/o|contact|address|addr|company|studio|name|email|e-mail|phone|tel|telephone|mobile)\s*[:：]\s*/i;
+    let hadLabels=false;
+    for(const l of rawLines){
+      const m = l.match(labelRe);
+      if(m){
+        hadLabels=true;
+        const label=m[1].toLowerCase(), val=l.slice(m[0].length).trim();
+        if(!val) continue;
+        if(/attn|attention|c\/o|contact/.test(label)) contact=contact||val;
+        else if(/address|addr/.test(label)) addr.push(val);
+        else if(/email/.test(label)) email=email||val;
+        else if(/phone|tel|mobile/.test(label)) phone=phone||val;
+        else name=name||val;
+      } else leftovers.push(l);
+    }
+    let rest = leftovers.join("\n");
+    if(!email) email=(rest.match(/[\w.+-]+@[\w-]+\.[\w.-]+/)||[""])[0];
+    if(!phone) phone=(rest.match(/(\+?\d{1,2}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/)||[""])[0];
+    if(email) rest=rest.replace(email," ");
+    if(phone) rest=rest.replace(phone," ");
+    let lines = rest.split(/\n+/).map(x=>x.replace(/^[,;·|\s]+|[,;·|\s]+$/g,"")).filter(Boolean);
+    let fromCommas=false;
+    if(lines.length===1 && !hadLabels){
+      lines = lines[0].split(/[,;]+/).map(x=>x.trim()).filter(Boolean);
+      fromCommas=true;
+    }
+    for(const l of lines){
+      if(!name && !/\d/.test(l) && !/@/.test(l) && l.length<48){ name=l; }
+      else addr.push(l);
+    }
+    const address = (fromCommas && addr.length>2)
+      ? addr.slice(0,-2).join(" ")+"\n"+addr.slice(-2).join(", ")
+      : addr.join("\n");
+    return {name, contact, email, phone, address};
+  }  function flash(el){ el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); }
+  function applyPaste(target, text){
+    const p = smartParse(text);
+    if(target==="from"){
+      if(p.name){$("fromName").value=p.name;flash($("fromName"));}
+      if(p.address){$("fromAddr").value=p.address;flash($("fromAddr"));}
+      if(p.email){$("fromEmail").value=p.email;flash($("fromEmail"));}
+      if(p.phone){$("fromPhone").value=p.phone;flash($("fromPhone"));}
+    }else{
+      if(p.name){$("toName").value=p.name;flash($("toName"));}
+      if(p.contact){$("toContact").value=p.contact;flash($("toContact"));}
+      if(p.address){$("toAddr").value=p.address;flash($("toAddr"));}
+      if(p.email){$("toEmail").value=p.email;flash($("toEmail"));}
+    }
+    render();
+  }
+  document.querySelectorAll(".paste textarea").forEach(t=>{
+    t.addEventListener("paste", e=>{
+      const text = (e.clipboardData||window.clipboardData).getData("text");
+      if(text && text.trim()){
+        e.preventDefault();
+        applyPaste(t.dataset.target, text);
+        t.value=""; t.blur();
+      }
+    });
+  });
+
+  /* ---------- helpers ---------- */
+  function dateFmt(d){
+    if(!d) return "—";
+    return new Date(d+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+  }
+  function setText(id,val,phText){
+    const el = $(id);
+    if(val && val.trim()!==""){ el.textContent = val; el.classList.remove("empty"); }
+    else if(phText!==undefined){ el.innerHTML = `<span class="ph">${phText}</span>`; el.classList.add("empty"); }
+    else { el.textContent = ""; }
+  }
+  function setRV(id, text){
+    const el = $(id);
+    if(text){ el.textContent = text; el.classList.add("filled"); }
+    else { el.textContent = "None"; el.classList.remove("filled"); }
+  }
+
+  /* ---------- main render ---------- */
+  function render(){
+    const no = $("invNo").value.trim() || "001";
+    $("pvNo").textContent = no;
+
+    const issue = $("issueDate").value;
+    $("pvIssue").textContent = dateFmt(issue);
+    const net = parseInt($("terms").value,10);
+    let dueTxt;
+    if(issue){
+      const d = new Date(issue+"T00:00:00"); d.setDate(d.getDate()+net);
+      dueTxt = net===0 ? "On receipt" : dateFmt(d.toISOString().slice(0,10));
+    } else dueTxt = net===0 ? "On receipt" : "Net "+net;
+    $("pvDue").textContent = dueTxt;
+
+    const po = $("poNo").value.trim();
+    $("pvPoWrap").style.display = po ? "" : "none";
+    $("pvPo").textContent = po;
+
+    setText("pvFromName", $("fromName").value, "Your name");
+    $("pvFromAddr").textContent = $("fromAddr").value;
+    $("pvFromContact").textContent = [$("fromEmail").value.trim(),$("fromPhone").value.trim()].filter(Boolean).join("\n");
+
+    setText("pvToName", $("toName").value, "Client");
+    $("pvToContactLine").textContent = $("toContact").value;
+    $("pvToAddr").textContent = $("toAddr").value;
+    $("pvToEmail").textContent = $("toEmail").value;
+
+    const proj = $("project").value.trim();
+    $("pvProjWrap").style.display = proj ? "" : "none";
+    $("pvProj").textContent = proj;
+
+    const tbody = $("pvItems"); tbody.innerHTML = "";
+    let subtotal = 0, filled = 0;
+    items.forEach(it=>{
+      const qty = parseFloat(it.qty)||0, rate = parseFloat(it.rate)||0;
+      const amt = qty*rate; subtotal += amt;
+      const has = (it.desc && it.desc.trim()!=="") || it.rate!=="";
+      if(has) filled++;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${has ? (esc(it.desc)||"&nbsp;") : '<span class="ph">Description of work</span>'}</td>
+        <td class="qty r">${has ? qty : ""}</td>
+        <td class="rate r">${it.rate!=="" ? fmt.format(rate) : ""}</td>
+        <td class="amt r">${it.rate!=="" ? fmt.format(amt) : ""}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    $("pvSub").textContent = fmt.format(subtotal);
+    const disc = parseFloat($("discount").value)||0;
+    $("pvDiscRow").style.display = disc>0 ? "flex" : "none";
+    if(disc>0) $("pvDisc").textContent = "−"+fmt.format(disc);
+    const taxPct = parseFloat($("taxPct").value)||0;
+    const taxable = Math.max(subtotal-disc,0);
+    const tax = taxable*taxPct/100;
+    $("pvTaxRow").style.display = taxPct>0 ? "flex" : "none";
+    if(taxPct>0){ $("pvTaxLabel").textContent="Tax ("+taxPct+"%)"; $("pvTax").textContent=fmt.format(tax); }
+    const total = taxable+tax;
+    $("pvTotal").textContent = fmt.format(total);
+
+    setText("pvPayment", $("payment").value, "Add your payment details");
+    setText("pvNotes", $("notes").value, "—");
+
+    /* live title = PDF filename on every browser, incl. iOS which skips beforeprint */
+    const tNm = $("fromName").value.trim().replace(/[^\w\u4e00-\u9fa5-]+/g,"-");
+    document.title = tNm ? tNm+"_Invoice_"+no : "Invoice_"+no;
+
+    /* row summaries */
+    setRV("rv-details", no+" · "+(net===0?"On receipt":"Net "+net));
+    $("rv-details").classList.add("filled");
+    setRV("rv-from", $("fromName").value.trim());
+    setRV("rv-to", $("toName").value.trim());
+    setRV("rv-items", filled ? filled+(filled>1?" items · ":" item · ")+fmt.format(total) : "");
+    setRV("rv-pay", $("payment").value.trim() ? "Added" : "");
+    setRV("rv-notes", $("notes").value.trim() ? "Added" : "");
+  }
+
+  /* ---------- scaling ---------- */
+  const isMobile = () => window.matchMedia("(max-width:880px)").matches;
+  let mZoom = false;
+  function scalePage(){
+    const stage = document.querySelector(".stage");
+    if(stage && stage.offsetParent!==null){
+      const s = Math.min((stage.clientWidth-88)/866, (stage.clientHeight-88)/1106, 1);
+      const el = $("pageScale");
+      el.style.transform = "scale("+s+")";
+      el.style.height = (1106*s)+"px";
+    }
+    const mp = $("mPreview");
+    if(mp && mp.classList.contains("on")){
+      const fit = Math.min((window.innerWidth-24)/866,(window.innerHeight-150)/1106);
+      const sc = mZoom ? Math.min(fit*1.9, 1) : fit;
+      const el2 = $("mPageScale");
+      el2.style.transformOrigin = "top left";
+      el2.style.transform = "scale("+sc+")";
+      el2.style.width = "866px";
+      el2.style.height = (1106*sc)+"px";
+      el2.style.marginLeft = Math.max((window.innerWidth-866*sc)/2, 12)+"px";
+      el2.style.marginTop = mZoom ? "60px" : Math.max((window.innerHeight-74-1106*sc)/2, 60)+"px";
+      mp.style.overflow = mZoom ? "auto" : "hidden";
+    }
+  }
+  window.addEventListener("resize", scalePage);
+
+  /* ---------- mobile preview ---------- */
+  function mPreview(on){
+    const mp = $("mPreview");
+    if(on){
+      $("mPageScale").appendChild($("frame"));
+      mp.classList.add("on");
+      mZoom = false;
+      $("mToggle").style.display="none";
+      $("mClose").style.display="block";
+      scalePage();
+    }else{
+      mp.classList.remove("on");
+      setTimeout(()=>{ $("pageScale").appendChild($("frame")); scalePage(); }, 450);
+      $("mToggle").style.display="flex";
+      $("mClose").style.display="none";
+    }
+  }
+  /* tap the paper to zoom in for reading; tap again to fit */
+  $("mPageScale").addEventListener("click", ()=>{
+    mZoom = !mZoom;
+    scalePage();
+    if(!mZoom) $("mPreview").scrollTo({top:0,left:0,behavior:"smooth"});
+  });
+
+  /* ---------- export ---------- */
+  function exportPDF(){
+    if(isMobile()){ $("exportSheet").classList.add("on"); }
+    else window.print();
+  }
+  function hideSheet(){ $("exportSheet").classList.remove("on"); }
+  function doExport(){
+    hideSheet();
+    setTimeout(()=>window.print(), 250);
+  }
+
+  /* export: page renders from the stage; put it back in the overlay afterwards */
+  window.addEventListener("beforeprint", ()=>{
+    $("pageScale").appendChild($("frame"));
+  });
+  window.addEventListener("afterprint", ()=>{
+    if($("mPreview").classList.contains("on")){
+      $("mPageScale").appendChild($("frame"));
+      scalePage();
+    }
+  });
+
+  /* ---------- remember my info (this device only) ---------- */
+  const LS_KEY = "invoice.me.v1";
+  let saveT = null;
+  function saveMe(){
+    clearTimeout(saveT);
+    saveT = setTimeout(()=>{
+      try{
+        localStorage.setItem(LS_KEY, JSON.stringify({
+          fromName: $("fromName").value,
+          fromAddr: $("fromAddr").value,
+          fromEmail: $("fromEmail").value,
+          fromPhone: $("fromPhone").value,
+          payment: $("payment").value,
+          terms: $("terms").value
+        }));
+      }catch(e){/* storage unavailable (private mode etc) — silently skip */}
+    }, 400);
+  }
+  function loadMe(){
+    try{
+      const d = JSON.parse(localStorage.getItem(LS_KEY)||"null");
+      if(!d) return;
+      if(d.fromName) $("fromName").value = d.fromName;
+      if(d.fromAddr) $("fromAddr").value = d.fromAddr;
+      if(d.fromEmail) $("fromEmail").value = d.fromEmail;
+      if(d.fromPhone) $("fromPhone").value = d.fromPhone;
+      if(d.payment) $("payment").value = d.payment;
+      if(d.terms) $("terms").value = d.terms;
+    }catch(e){}
+  }
+  function clearMe(){
+    try{ localStorage.removeItem(LS_KEY); }catch(e){}
+    ["fromName","fromAddr","fromEmail","fromPhone","payment"].forEach(id=>$(id).value="");
+    render();
+  }
+  ["fromName","fromAddr","fromEmail","fromPhone","payment"].forEach(id=>
+    $(id).addEventListener("input", saveMe));
+  $("terms").addEventListener("change", saveMe);
+
+  /* ---------- init ---------- */
+  document.querySelectorAll(".panel input, .panel textarea, .panel select")
+    .forEach(el=>el.addEventListener("input", render));
+  $("terms").addEventListener("change", render);
+  $("issueDate").value = new Date().toISOString().slice(0,10);
+  loadMe();
+  renderItemRows();
+  render();
+  scalePage();
+  /* open the first row on load — invites the first tap */
+  setTimeout(()=>$("g-details").classList.add("open"), 350);
+</script>
+</body>
+</html>
