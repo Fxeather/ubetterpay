@@ -237,9 +237,15 @@
   .linkbtn:hover{color:var(--ink);}
 
   .panel-foot{
-    padding:16px 28px 22px;border-top:1px solid var(--hairline);
-    display:flex;align-items:center;gap:12px;background:var(--panelbg);
+    padding:16px 28px 18px;border-top:1px solid var(--hairline);
+    display:flex;flex-direction:column;align-items:stretch;gap:10px;background:var(--panelbg);
   }
+  .byline{
+    display:block;text-align:center;text-decoration:none;
+    font-size:11.5px;letter-spacing:-0.02em;text-transform:uppercase;
+    color:rgba(20,20,20,.15);transition:color .2s;
+  }
+  .byline:hover{color:rgba(20,20,20,.30);}
   .btn-export{
     flex:1;background:var(--ink);color:#fff;border:none;border-radius:24px;
     padding:13px 22px;font-size:13px;font-weight:500;letter-spacing:-0.005em;
@@ -480,6 +486,7 @@
     </div>
     <div class="panel-foot">
       <button class="btn-export" onclick="exportPDF()">Export PDF</button>
+      <a class="byline" href="https://instagram.com/feather.issue" target="_blank" rel="noopener">built by @feather.issue</a>
     </div>
   </aside>
 </div>
